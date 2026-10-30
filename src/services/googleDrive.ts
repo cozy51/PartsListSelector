@@ -13,7 +13,7 @@ const GRANTED_KEY = 'parts-list-selector-google-drive-granted';
 
 type TokenResponse = { access_token?: string; error?: string; error_description?: string };
 type TokenClient = { requestAccessToken: (options?: { prompt?: string }) => void };
-type GoogleIdentity = { accounts: { oauth2: { initTokenClient: (config: { client_id: string; scope: string; callback: (response: TokenResponse) => void; error_callback: () => void }) => TokenClient } } };
+type GoogleIdentity = { accounts: { oauth2: { initTokenClient: (config: { client_id: string; scope: string; include_granted_scopes?: boolean; callback: (response: TokenResponse) => void; error_callback: () => void }) => TokenClient } } };
 type DriveFile = { id: string; name: string; modifiedTime?: string };
 type DriveList = { files?: DriveFile[] };
 type DriveFolder = { id: string; name: string; parents?: string[]; trashed?: boolean; createdTime?: string; modifiedTime?: string };
@@ -49,6 +49,8 @@ export async function authorizeGoogleDrive(clientId: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const client = oauth2.initTokenClient({
       client_id: clientId.trim(), scope: 'https://www.googleapis.com/auth/drive.file',
+      // 同じクライアントIDで過去に許可された他スコープ（例: youtube.readonly）を混ぜると、組み合わせ不可で400エラーになるため要求しない。
+      include_granted_scopes: false,
       callback: (response) => { if (response.access_token) { accessToken = response.access_token; localStorage.setItem(GRANTED_KEY, '1'); resolve(); } else reject(new Error(response.error_description ?? response.error ?? 'Google認証に失敗しました。')); },
       error_callback: () => reject(new Error('Google認証がキャンセルされました。')),
     });
